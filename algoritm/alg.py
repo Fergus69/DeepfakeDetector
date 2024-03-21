@@ -71,7 +71,7 @@ class Meso4(Classifier):
 
 # Instantiate a MesoNet model with pretrained weights
 meso = Meso4()
-meso.load("D:/licenta/algoritm/weights/Meso4_DF.h5")
+meso.load("E:/licenta/aplicatie/algoritm/weights/Meso4_DF.h5")
 
 # Prepare image data
 
@@ -80,7 +80,7 @@ dataGenerator = ImageDataGenerator(rescale=1./255)
 
 # Instantiating generator to feed images through the network
 generator = dataGenerator.flow_from_directory(
-    'D:/licenta/algoritm/data/',
+    'E:/licenta/aplicatie/algoritm/data/',
     target_size=(256, 256),
     batch_size=1,
     class_mode='binary')
@@ -89,7 +89,7 @@ generator = dataGenerator.flow_from_directory(
 generator.class_indices
 
 # Rendering image X with label y for MesoNet
-X, y = generator.next()
+X, y = next(generator)
 
 # Evaluating prediction
 print(f"Predicted likelihood: {meso.predict(X)[0][0]:.4f}")
