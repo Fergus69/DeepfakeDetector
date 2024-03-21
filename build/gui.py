@@ -12,7 +12,6 @@ import sys
 sys.path.insert(0, "./Utilities")
 import Utilities.functions as functions
 
-
 OUTPUT_PATH = Path(__file__).parent
 ASSETS_PATH = OUTPUT_PATH / Path(r"E:\licenta\aplicatie\build\assets\frame0")
 
@@ -23,15 +22,15 @@ def relative_to_assets(path: str) -> Path:
 
 window = Tk()
 
-window.geometry("1440x1024")
+window.geometry("1161x946")
 window.configure(bg = "#FFFFFF")
 
 
 canvas = Canvas(
     window,
     bg = "#FFFFFF",
-    height = 1024,
-    width = 1440,
+    height = 946,
+    width = 1161,
     bd = 0,
     highlightthickness = 0,
     relief = "ridge"
@@ -56,7 +55,7 @@ button_1 = Button(
     relief="flat"
 )
 button_1.place(
-    x=448.0,
+    x=309.0,
     y=826.0,
     width=543.0,
     height=70.0
@@ -65,7 +64,7 @@ button_1.place(
 image_image_2 = PhotoImage(
     file=relative_to_assets("image_2.png"))
 image_2 = canvas.create_image(
-    719.0,
+    581.0,
     377.0,
     image=image_image_2
 )
@@ -76,11 +75,11 @@ button_2 = Button(
     image=button_image_2,
     borderwidth=0,
     highlightthickness=0,
-    filepath=lambda: functions.select_folder(),
+    command=lambda: functions.select_file(),
     relief="flat"
 )
 button_2.place(
-    x=651.0,
+    x=512.0,
     y=711.0,
     width=139.0,
     height=30.0
