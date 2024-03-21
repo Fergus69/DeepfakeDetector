@@ -7,4 +7,7 @@ def select_file():
     file_path = filedialog.askopenfilename()
     if file_path:
         messagebox.showinfo("Video Loaded", "Video successfully loaded for analysis.")
-    return file_path    
+    return file_path
+
+def start_predection():  
+    print("button_1 clicked")  
