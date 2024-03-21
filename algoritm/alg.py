@@ -4,10 +4,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from tensorflow import keras
-from tensorflow.keras.layers import Input, Dense, Flatten, Conv2D, MaxPooling2D, BatchNormalization, Dropout, Reshape, Concatenate, LeakyReLU
+from keras.layers import Input, Dense, Flatten, Conv2D, MaxPooling2D, BatchNormalization, Dropout, Reshape, Concatenate, LeakyReLU
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.models import Model
+from keras.optimizers import Adam
+from keras.models import Model
 
 # Height and width refer to the size of the image
 # Channels refers to the amount of color channels (red, green, blue)
@@ -64,7 +64,7 @@ class Meso4(Classifier):
         y = Flatten()(x4)
         y = Dropout(0.5)(y)
         y = Dense(16)(y)
-        y = LeakyReLU(alpha=0.1)(y)
+        y = LeakyReLU(negative_slope=0.1)(y)
         y = Dropout(0.5)(y)
         y = Dense(1, activation = 'sigmoid')(y)
 

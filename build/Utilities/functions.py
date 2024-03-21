@@ -9,5 +9,7 @@ def select_file():
         messagebox.showinfo("Video Loaded", "Video successfully loaded for analysis.")
     return file_path
 
-def start_predection():  
-    print("button_1 clicked")  
+def start_prediction(path):  
+    print("button_1 clicked")
+    with open(path) as file:
+        exec(file.read())  

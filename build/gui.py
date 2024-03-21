@@ -51,7 +51,7 @@ button_1 = Button(
     image=button_image_1,
     borderwidth=0,
     highlightthickness=0,
-    command=lambda: functions.start_prediction(),
+    command=lambda: functions.start_prediction(r"E:\licenta\aplicatie\algoritm\alg.py"),
     relief="flat"
 )
 button_1.place(
