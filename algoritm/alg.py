@@ -5,9 +5,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tensorflow import keras
 from keras.layers import Input, Dense, Flatten, Conv2D, MaxPooling2D, BatchNormalization, Dropout, Reshape, Concatenate, LeakyReLU
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
+#from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from keras.optimizers import Adam
 from keras.models import Model
+import tensorflow as tf
 
 # Height and width refer to the size of the image
 # Channels refers to the amount of color channels (red, green, blue)
@@ -17,18 +18,18 @@ image_dimensions = {'height':256, 'width':256, 'channels':3}
 # Create a Classifier class
 
 class Classifier:
-    def __init__():
+    def __init__(self):
         self.model = 0
-    
+
     def predict(self, x):
         return self.model.predict(x)
-    
+
     def fit(self, x, y):
         return self.model.train_on_batch(x, y)
-    
+
     def get_accuracy(self, x, y):
         return self.model.test_on_batch(x, y)
-    
+
     def load(self, path):
         self.model.load_weights(path)
 
@@ -68,7 +69,7 @@ class Meso4(Classifier):
         y = Dropout(0.5)(y)
         y = Dense(1, activation = 'sigmoid')(y)
 
-        return Model(inputs = x, outputs = y)
+        return tf.keras.models.Model(inputs = x, outputs = y)
 
 # Instantiate a MesoNet model with pretrained weights
 meso = Meso4()
@@ -77,7 +78,7 @@ meso.load("E:/licenta/aplicatie/algoritm/weights/Meso4_DF.h5")
 # Prepare image data
 
 # Rescaling pixel values (between 1 and 255) to a range between 0 and 1
-dataGenerator = ImageDataGenerator(rescale=1./255)
+dataGenerator = tf.keras.preprocessing.image.ImageDataGenerator(rescale=1./255)
 
 # Instantiating generator to feed images through the network
 generator = dataGenerator.flow_from_directory(
