@@ -58,6 +58,7 @@ def create_image(path):
     377.0,
     image=poza
     )
+    image_2.image=poza
 
 def button_2_func():
     fisier=select_file()
