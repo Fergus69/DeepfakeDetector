@@ -24,6 +24,7 @@ from keras.layers import Input, Dense, Flatten, Conv2D, MaxPooling2D, BatchNorma
 from keras.optimizers import Adam
 from keras.models import Model
 import tensorflow as tf
+import os
 
 
 #functions
@@ -32,7 +33,7 @@ from tkinter import filedialog
 from tkinter import messagebox
 
 OUTPUT_PATH = Path(__file__).parent
-ASSETS_PATH = OUTPUT_PATH / Path(r"E:\licenta\aplicatie\build\assets\frame0")
+ASSETS_PATH = OUTPUT_PATH / Path('./assets/frame0')
 
 
 def relative_to_assets(path: str) -> Path:
@@ -108,8 +109,9 @@ def alg():
             return tf.keras.models.Model(inputs = x, outputs = y)
 
     # Instantiate a MesoNet model with pretrained weights
+    print("Current working directory: ", os.getcwd())
     meso = Meso4()
-    meso.load("E:/licenta/aplicatie/algoritm/weights/Meso4_DF.h5")
+    meso.load('./algoritm/weights/Meso4_DF.h5')
 
     # Prepare image data
 
@@ -118,7 +120,7 @@ def alg():
 
     # Instantiating generator to feed images through the network
     generator = dataGenerator.flow_from_directory(
-        'E:/licenta/aplicatie/algoritm/data/',
+        './algoritm/data/',
         target_size=(256, 256),
         batch_size=1,
         class_mode='binary')
