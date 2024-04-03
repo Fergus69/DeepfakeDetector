@@ -44,7 +44,26 @@ def select_file():
     file_path = filedialog.askopenfilename()
     if file_path:
         messagebox.showinfo("Video Loaded", "Video successfully loaded for analysis.")
+        
     return file_path
+
+
+def delete_image():
+    canvas.delete(image_2)  # Clear the canvas
+
+def create_image(path):
+    poza = PhotoImage(file=path)
+    image_2 = canvas.create_image(
+    581.0,
+    377.0,
+    image=poza
+    )
+
+def button_2_func():
+    fisier=select_file()
+    delete_image()
+    create_image(fisier)
+
 
 
 # Height and width refer to the size of the image
@@ -198,7 +217,7 @@ button_2 = Button(
     image=button_image_2,
     borderwidth=0,
     highlightthickness=0,
-    command=lambda: select_file(),
+    command=lambda: button_2_func(),
     relief="flat"
 )
 button_2.place(
