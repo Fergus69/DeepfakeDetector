@@ -11,3 +11,5 @@
 # Built Visual Studio Code Extensions
 *.vsix
 /algoritm/data/
+/build/assets/predict/
+/build/assets/picture/
