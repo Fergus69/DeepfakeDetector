@@ -9,10 +9,13 @@ from pathlib import Path
 # Explicit imports to satisfy Flake8
 
 #gui
-from tkinter import Tk, Canvas, Entry, Text, Button, PhotoImage
+from tkinter import Tk, Canvas, Entry, Text, Button, PhotoImage, filedialog, messagebox
 import sys
 sys.path.insert(0, "./Utilities")
 import Utilities.functions as functions
+import shutil
+from PIL import Image
+
 
 
 #alg
@@ -25,6 +28,7 @@ from keras.optimizers import Adam
 from keras.models import Model
 import tensorflow as tf
 import os
+import cv2
 
 
 #functions
@@ -41,11 +45,74 @@ def relative_to_assets(path: str) -> Path:
 
 def select_file():
     print("button_2 clicked")
+    suffix=None
     file_path = filedialog.askopenfilename()
     if file_path:
-        messagebox.showinfo("Video Loaded", "Video successfully loaded for analysis.")
+        suffix=Path(file_path).suffix
+        file_extension = Path(file_path).suffix
+        if file_extension == '.png':
+            messagebox.showinfo("Photo Loaded", "Photo successfully loaded for analysis.")
+            return file_path, suffix
+        elif file_extension == '.mp4':
+            messagebox.showinfo("Video Loaded", "Video successfully loaded for analysis.")
+            return file_path, suffix
+        else:
+             messagebox.showinfo("Wrong type", "This application only supports png and mp4 files.")    
+    return None
+    
+
+def save_all_frames_of_video(video_path, output_folder):
+    # Ensure the output directory exists
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+    
+    # Capture the video from the given path
+    cap = cv2.VideoCapture(video_path)
+    
+    # Check if video opened successfully
+    if not cap.isOpened():
+        print("Error: Could not open video.")
+        return
+    
+    frame_count = 0
+    while True:
+        # Read the next frame
+        ret, frame = cap.read()
+        if not ret:
+            break  # Break the loop if there are no frames left to read
         
-    return file_path
+        # Construct the output path with a unique filename for each frame
+        frame_filename = os.path.join(output_folder, f"frame_{frame_count}.png")
+        
+        # Save the current frame as a PNG file
+        cv2.imwrite(frame_filename, frame)
+        print(f"Frame {frame_count} saved to {frame_filename}")
+        
+        frame_count += 1
+    
+    # When everything done, release the video capture object
+    cap.release()
+    print("All frames have been saved.")
+    
+def resize_images_in_same_folder(folder_path, size=(256, 256)):
+    """
+    Resize all images in the specified folder to the given size and save them back to the same folder.
+
+    Parameters:
+    - folder_path: Path to the folder containing the images to resize.
+    - size: A tuple specifying the new size as (width, height).
+    """
+    folder_path = Path(folder_path)
+
+    for file in folder_path.iterdir():
+        if file.is_file() and file.suffix in ['.jpg', '.jpeg', '.png']:
+            try:
+                img = Image.open(file)
+                img = img.resize(size, Image.ANTIALIAS)
+                img.save(file)  # Save the image back to the same file
+                print(f"Resized and saved {file.name}")
+            except Exception as e:
+                print(f"Failed to resize {file.name}. Reason: {e}")
 
 
 def delete_image():
@@ -60,10 +127,31 @@ def create_image(path):
     )
     image_2.image=poza
 
+def clear_directory(directory_path):
+    for filename in os.listdir(directory_path):
+        file_path = os.path.join(directory_path, filename)
+        try:
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)
+        except Exception as e:
+            print(f'Failed to delete {file_path}. Reason: {e}')
+
+predict_folder = './build/assets/predict'
 def button_2_func():
-    fisier=select_file()
-    delete_image()
-    create_image(fisier)
+    if not os.path.exists(predict_folder):
+        os.makedirs(predict_folder)
+    else:
+        # Clear the contents of the predict folder
+        clear_directory(predict_folder)
+    fisier,suffix=select_file()
+    if fisier:
+        if suffix == '.png':
+            delete_image()
+            create_image(fisier)
+        elif suffix == '.mp4':
+            save_all_frames_of_video(fisier, './build/assets/predict/')
 
 
 
