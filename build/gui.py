@@ -211,7 +211,7 @@ def button_2_func():
         os.makedirs(predict_folder)
     else:
         # Clear the contents of the predict folder
-        clear_directory(picture_folder)
+        clear_directory(predict_folder)
     
     fisier,suffix=select_file()
     if fisier:
@@ -222,9 +222,9 @@ def button_2_func():
         elif suffix == '.mp4':
             save_first_frame_of_video(fisier,picture_folder + '/picture.png')
             save_all_frames_of_video(fisier, predict_folder)
+        resize_images_in_same_folder(picture_folder,(543,635))
         delete_image()
         create_image(picture_folder)
-        resize_images_in_same_folder(picture_folder,(543,635))
         resize_images_in_same_folder(predict_folder)
 
 
