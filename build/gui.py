@@ -9,10 +9,13 @@ from pathlib import Path
 # Explicit imports to satisfy Flake8
 
 #gui
-from tkinter import Tk, Canvas, Entry, Text, Button, PhotoImage
+from tkinter import Tk, Canvas, Entry, Text, Button, PhotoImage, filedialog, messagebox
 import sys
 sys.path.insert(0, "./Utilities")
 import Utilities.functions as functions
+import shutil
+from PIL import Image
+
 
 
 #alg
@@ -25,6 +28,7 @@ from keras.optimizers import Adam
 from keras.models import Model
 import tensorflow as tf
 import os
+import cv2
 
 
 #functions
@@ -41,29 +45,187 @@ def relative_to_assets(path: str) -> Path:
 
 def select_file():
     print("button_2 clicked")
+    suffix=None
     file_path = filedialog.askopenfilename()
     if file_path:
-        messagebox.showinfo("Video Loaded", "Video successfully loaded for analysis.")
+        suffix=Path(file_path).suffix
+        file_extension = Path(file_path).suffix
+        if file_extension == '.png':
+            messagebox.showinfo("Photo Loaded", "Photo successfully loaded for analysis.")
+            return file_path, suffix
+        elif file_extension == '.mp4':
+            messagebox.showinfo("Video Loaded", "Video successfully loaded for analysis.")
+            return file_path, suffix
+        else:
+             messagebox.showinfo("Wrong type", "This application only supports png and mp4 files.")    
+    return None
+    
+def save_first_frame_of_video(video_path, output_path):
+    # Ensure the output directory exists
+    output_dir = os.path.dirname(output_path)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+        print(f"Created directory: {output_dir}")
+    
+    # Capture the video from the given path
+    cap = cv2.VideoCapture(video_path)
+    
+    # Check if video opened successfully
+    if not cap.isOpened():
+        print("Error: Could not open video.")
+        cap.release()  # Ensure the capture is released in case of failure
+        return False
+    
+    # Read the first frame
+    ret, frame = cap.read()
+    if ret:
+        # Save the first frame as a PNG file
+        if cv2.imwrite(output_path, frame):
+            print(f"First frame saved to {output_path}")
+        else:
+            print("Error: Could not save the frame.")
+            ret = False
+    else:
+        print("Error: Could not read frame from video.")
+        ret = False
+    
+    # When everything done, release the video capture object
+    cap.release()
+    return ret
+
+
+def save_all_frames_of_video(video_path, output_folder):
+    # Ensure the output directory exists
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+    
+    # Capture the video from the given path
+    cap = cv2.VideoCapture(video_path)
+    
+    # Check if video opened successfully
+    if not cap.isOpened():
+        print("Error: Could not open video.")
+        return
+    
+    frame_count = 0
+    while True:
+        # Read the next frame
+        ret, frame = cap.read()
+        if not ret:
+            break  # Break the loop if there are no frames left to read
         
-    return file_path
+        # Construct the output path with a unique filename for each frame
+        frame_filename = os.path.join(output_folder, f"frame_{frame_count}.png")
+        
+        # Save the current frame as a PNG file
+        cv2.imwrite(frame_filename, frame)
+        print(f"Frame {frame_count} saved to {frame_filename}")
+        
+        frame_count += 1
+    
+    # When everything done, release the video capture object
+    cap.release()
+    print("All frames have been saved.")
+    
+from PIL import Image
+import os
+from pathlib import Path
+
+def resize_images_in_same_folder(folder_path, size=(256, 256)):
+    """
+    Resize all images in the specified folder to the given size and save them back to the same folder.
+
+    Parameters:
+    - folder_path: Path to the folder containing the images to resize.
+    - size: A tuple specifying the new size as (width, height).
+    """
+    folder_path = Path(folder_path)
+
+    for file in folder_path.iterdir():
+        if file.is_file() and file.suffix in ['.jpg', '.jpeg', '.png']:
+            try:
+                img = Image.open(file)
+                # Use Image.Resampling.LANCZOS for high-quality downsampling
+                img = img.resize(size, Image.Resampling.LANCZOS)
+                img.save(file)  # Save the image back to the same file
+                print(f"Resized and saved {file.name}")
+            except Exception as e:
+                print(f"Failed to resize {file.name}. Reason: {e}")
 
 
 def delete_image():
     canvas.delete(image_2)  # Clear the canvas
 
-def create_image(path):
-    poza = PhotoImage(file=path)
-    image_2 = canvas.create_image(
-    581.0,
-    377.0,
-    image=poza
-    )
-    image_2.image=poza
 
+
+def create_image(folder_path):
+    """
+    Create an image on the canvas using the first image file found in the specified folder.
+
+    Parameters:
+    - folder_path: Path to the folder from which the first image will be used.
+    """
+    folder_path = Path(folder_path)
+    for file in folder_path.iterdir():
+        if file.is_file() and file.suffix.lower() in ['.jpg', '.jpeg', '.png']:
+            path = str(file)  # Convert the Path object to a string
+            try:
+                poza = PhotoImage(file=path)
+                # Assuming 'canvas' and 'image_2' are already defined in the scope this function is called
+                global image_2  # Use global to modify the 'image_2' variable outside of the function
+                #canvas.delete("all")  # Clear the canvas before creating a new image
+                image_2 = canvas.create_image(
+                    581.0,
+                    377.0,
+                    image=poza
+                )
+                canvas.image = poza  # Keep a reference to avoid garbage collection
+                print(f"Displayed {file.name} on canvas.")
+                break  # Exit the loop after displaying the first image
+            except Exception as e:
+                print(f"Failed to display {file.name}. Reason: {e}")
+                continue  # Try the next file if there's an error
+    else:
+        print("No suitable image file found in the folder.")
+
+def clear_directory(directory_path):
+    for filename in os.listdir(directory_path):
+        file_path = os.path.join(directory_path, filename)
+        try:
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)
+        except Exception as e:
+            print(f'Failed to delete {file_path}. Reason: {e}')
+
+picture_folder = './build/assets/picture'
+predict_folder = './build/assets/predict/predict'
 def button_2_func():
-    fisier=select_file()
-    delete_image()
-    create_image(fisier)
+    if not os.path.exists(picture_folder):
+        os.makedirs(picture_folder)
+    else:
+        # Clear the contents of the predict folder
+        clear_directory(picture_folder)
+    if not os.path.exists(predict_folder):
+        os.makedirs(predict_folder)
+    else:
+        # Clear the contents of the predict folder
+        clear_directory(picture_folder)
+    
+    fisier,suffix=select_file()
+    if fisier:
+        if suffix == '.png':
+            destination_path = os.path.join(picture_folder, os.path.basename(fisier))
+            shutil.copy(fisier, destination_path)
+            shutil.copy(fisier, os.path.join(predict_folder, os.path.basename(fisier)))
+        elif suffix == '.mp4':
+            save_first_frame_of_video(fisier,picture_folder + '/picture.png')
+            save_all_frames_of_video(fisier, predict_folder)
+        delete_image()
+        create_image(picture_folder)
+        resize_images_in_same_folder(picture_folder,(543,635))
+        resize_images_in_same_folder(predict_folder)
 
 
 
@@ -140,7 +302,9 @@ def alg():
 
     # Instantiating generator to feed images through the network
     generator = dataGenerator.flow_from_directory(
-        './algoritm/data/',
+        #'./algoritm/data/',
+        './build/assets/predict/',
+        #predict_folder,
         target_size=(256, 256),
         batch_size=1,
         class_mode='binary')
@@ -155,10 +319,6 @@ def alg():
     print(f"Predicted likelihood: {meso.predict(X)[0][0]:.4f}")
     print(f"Actual label: {int(y[0])}")
     print(f"\nCorrect prediction: {round(meso.predict(X)[0][0])==y[0]}")
-
-    # Showing image
-    plt.imshow(np.squeeze(X))
-
 
 
 window = Tk()
