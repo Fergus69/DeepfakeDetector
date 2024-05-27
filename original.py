@@ -12,6 +12,37 @@ import cv2
 # Height and width refer to the size of the image
 # Channels refers to the amount of color channels (red, green, blue)
 
+def get_images_and_labels(folder_path):
+    # Initialize empty lists to store image data and corresponding labels
+    images = []
+    labels = []
+
+    # Iterate over all subfolders in the given folder
+    for subfolder in os.listdir(folder_path):
+        if os.path.isdir(os.path.join(folder_path, subfolder)):
+            # Iterate over all images in the subfolder
+            for img_file in os.listdir(os.path.join(folder_path, subfolder)):
+                # Load the image using OpenCV
+                img = cv2.imread(os.path.join(folder_path, subfolder, img_file))
+                img = cv2.resize(img, (256, 256))
+                # Convert the image to a NumPy array
+                img_array = np.array(img)
+                # Append the image data to the list
+                images.append(img_array)
+                # Get the label from the folder name
+                if subfolder=='DeepFake':
+                    label = 0
+                else:
+                    label = 1
+                # Append the label to the list
+                labels.append(label)
+
+    # Convert the lists to NumPy arrays
+    images_array = np.array(images)
+    labels_array = np.array(labels)
+
+    return images_array, labels_array
+
 image_dimensions = {'height':256, 'width':256, 'channels':3}
 # Create a Classifier class
 
@@ -57,11 +88,11 @@ class Meso4(Classifier):
         x3 = BatchNormalization()(x3)
         x3 = MaxPooling2D(pool_size=(2, 2), padding='same')(x3)
         
-        x4 = Conv2D(16, (5, 5), padding='same', activation = 'relu')(x3)
+        x4 = Conv2D(24, (5, 5), padding='same', activation = 'relu')(x3)
         x4 = BatchNormalization()(x4)
         x4 = MaxPooling2D(pool_size=(4, 4), padding='same')(x4)
         
-        y = Flatten()(x4)
+        y = Flatten()(x3)
         y = Dropout(0.5)(y)
         y = Dense(16)(y)
         y = LeakyReLU(alpha=0.1)(y)
@@ -71,7 +102,7 @@ class Meso4(Classifier):
         return Model(inputs = x, outputs = y)
 # Instantiate a MesoNet model with pretrained weights
 meso = Meso4()
-meso.load('./algoritm/weights/Meso4_DF.h5')
+meso.load('./algoritm/weights/Meso4/.weights.h5')
 # Prepare image data
 
 # Rescaling pixel values (between 1 and 255) to a range between 0 and 1
@@ -89,30 +120,19 @@ generator.class_indices
 # '.ipynb_checkpoints' is a *hidden* file Jupyter creates for autosaves
 # It must be removed for flow_from_directory to work.
 
-# Equivalent command in Unix (for Mac / Linux users)
-# !rm -r /Users/mikhaillenko/mesonet/mesonet/data/.ipynb_checkpoints/
-# Recreating generator after removing '.ipynb_checkpoints'
-dataGenerator = tf.keras.preprocessing.image.ImageDataGenerator(rescale=1./255)
-
-generator = dataGenerator.flow_from_directory(
-    './algoritm/data/',
-    target_size=(256, 256),
-    batch_size=1,
-    class_mode='binary')
-
-# Re-checking class assignment after removing it
-generator.class_indices
 
 # Rendering image X with label y for MesoNet
 X, y = next(generator)
-
+images,labels=get_images_and_labels('./algoritm/data/')
+#meso.fit(images,labels)
+#meso.model.save_weights("./algoritm/weights/Meso4/.weights.h5")
 # Evaluating prediction
 print(f"Predicted likelihood: {meso.predict(X)[0][0]:.4f}")
 print(f"Actual label: {int(y[0])}")
 print(f"\nCorrect prediction: {round(meso.predict(X)[0][0])==y[0]}")
 
 # Showing image
-plt.imshow(np.squeeze(X));
+plt.imshow(np.squeeze(X))
 
 
 # Creating separate lists for correctly classified and misclassified images
@@ -174,13 +194,13 @@ def plotter(images,preds):
         ax = plt.gca()
         ax.axes.xaxis.set_ticks([])
         ax.axes.yaxis.set_ticks([])
-    plt.show;
+    plt.show()
     return
-plotter(correct_real, correct_real_pred)
+#plotter(correct_real, correct_real_pred)
 
-plotter(misclassified_real, misclassified_real_pred)
+#plotter(misclassified_real, misclassified_real_pred)
 
-plotter(correct_deepfake, correct_deepfake_pred)
+#plotter(correct_deepfake, correct_deepfake_pred)
 
-plotter(misclassified_deepfake, misclassified_deepfake_pred)
-plt.show(block=True)
+#plotter(misclassified_deepfake, misclassified_deepfake_pred)
+#plt.show(block=True)
