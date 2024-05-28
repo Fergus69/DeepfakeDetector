@@ -53,8 +53,8 @@ class Classifier:
     def predict(self, x):
         return self.model.predict(x)
     
-    def fit(self, x, y):
-        return self.model.train_on_batch(x, y)
+    def fit(self, generator, epochs=1):
+        self.model.fit(generator, epochs=epochs, steps_per_epoch=len(generator.labels)//generator.batch_size)
     
     def get_accuracy(self, x, y):
         return self.model.test_on_batch(x, y)
@@ -88,7 +88,7 @@ class Meso4(Classifier):
         x3 = BatchNormalization()(x3)
         x3 = MaxPooling2D(pool_size=(2, 2), padding='same')(x3)
         
-        x4 = Conv2D(24, (5, 5), padding='same', activation = 'relu')(x3)
+        x4 = Conv2D(16, (5, 5), padding='same', activation = 'relu')(x3)
         x4 = BatchNormalization()(x4)
         x4 = MaxPooling2D(pool_size=(4, 4), padding='same')(x4)
         
@@ -102,7 +102,7 @@ class Meso4(Classifier):
         return Model(inputs = x, outputs = y)
 # Instantiate a MesoNet model with pretrained weights
 meso = Meso4()
-meso.load('./algoritm/weights/Meso4/.weights.h5')
+#meso.load('./algoritm/weights/Meso4/.weights.h5')
 # Prepare image data
 
 # Rescaling pixel values (between 1 and 255) to a range between 0 and 1
@@ -112,7 +112,7 @@ dataGenerator = tf.keras.preprocessing.image.ImageDataGenerator(rescale=1./255)
 generator = dataGenerator.flow_from_directory(
     './algoritm/data/',
     target_size=(256, 256),
-    batch_size=1,
+    batch_size=32,
     class_mode='binary')
 
 # Checking class assignment
@@ -124,15 +124,14 @@ generator.class_indices
 # Rendering image X with label y for MesoNet
 X, y = next(generator)
 images,labels=get_images_and_labels('./algoritm/data/')
-#meso.fit(images,labels)
-#meso.model.save_weights("./algoritm/weights/Meso4/.weights.h5")
+meso.fit(generator,epochs=15)
+meso.model.save_weights("./algoritm/weights/Meso4/.weights.h5")
 # Evaluating prediction
 print(f"Predicted likelihood: {meso.predict(X)[0][0]:.4f}")
 print(f"Actual label: {int(y[0])}")
 print(f"\nCorrect prediction: {round(meso.predict(X)[0][0])==y[0]}")
-
 # Showing image
-plt.imshow(np.squeeze(X))
+plt.imshow(np.squeeze(X[0]))
 
 
 # Creating separate lists for correctly classified and misclassified images
@@ -196,6 +195,14 @@ def plotter(images,preds):
         ax.axes.yaxis.set_ticks([])
     plt.show()
     return
+
+# Save the trained model
+meso.model.save('mesonet.h5')
+
+# Save the model accuracy
+with open('mesonet_accuracy.txt', 'w') as f:
+    f.write(f"Model accuracy: {percentage_correct:.4f}")
+
 #plotter(correct_real, correct_real_pred)
 
 #plotter(misclassified_real, misclassified_real_pred)
