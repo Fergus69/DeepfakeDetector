@@ -9,7 +9,7 @@ from pathlib import Path
 # Explicit imports to satisfy Flake8
 
 #gui
-from tkinter import Tk, Canvas, Entry, Text, Button, PhotoImage, filedialog, messagebox
+from tkinter import Tk, Canvas, Entry, Text, Button, PhotoImage, filedialog, messagebox, ttk
 import sys
 sys.path.insert(0, "./Utilities")
 import Utilities.functions as functions
@@ -296,7 +296,7 @@ def alg():
     meso.load('./algoritm/weights/Meso4_DF.h5')
 
     # Prepare image data
-
+    
     # Rescaling pixel values (between 1 and 255) to a range between 0 and 1
     dataGenerator = tf.keras.preprocessing.image.ImageDataGenerator(rescale=1./255)
 
@@ -314,7 +314,12 @@ def alg():
 
     # Rendering image X with label y for MesoNet
     X, y = next(generator)
-
+    label = label_entry.get()
+    if label:
+        if label == 'True':
+            y[0]=1
+        else:    
+            y[0]=0
     # Evaluating prediction
     print(f"Predicted likelihood: {meso.predict(X)[0][0]:.4f}")
     print(f"Actual label: {int(y[0])}")
@@ -347,6 +352,9 @@ image_1 = canvas.create_image(
     image=image_image_1,
     anchor='center'
 )
+
+label_entry = ttk.Combobox(window, values=["True", "False"], state="readonly")
+label_entry.place(x=512, y=751)
 
 button_image_1 = PhotoImage(
     file=relative_to_assets("button_1.png"))
