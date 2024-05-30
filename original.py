@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tensorflow import keras
 from keras.layers import Input, Dense, Flatten, Conv2D, MaxPooling2D, BatchNormalization, Dropout, Reshape, Concatenate, LeakyReLU
-#from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from keras.optimizers import Adam
 from keras.models import Model
 import tensorflow as tf
@@ -11,6 +10,14 @@ import os
 import cv2
 # Height and width refer to the size of the image
 # Channels refers to the amount of color channels (red, green, blue)
+
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    try:
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+    except RuntimeError as e:
+        print(e)
 
 def get_images_and_labels(folder_path):
     # Initialize empty lists to store image data and corresponding labels
@@ -102,7 +109,7 @@ class Meso4(Classifier):
         return Model(inputs = x, outputs = y)
 # Instantiate a MesoNet model with pretrained weights
 meso = Meso4()
-#meso.load('./algoritm/weights/Meso4/.weights.h5')
+#meso.load('./aplicatie/configurations/original/mesonet.h5')
 # Prepare image data
 
 # Rescaling pixel values (between 1 and 255) to a range between 0 and 1
@@ -110,9 +117,9 @@ dataGenerator = tf.keras.preprocessing.image.ImageDataGenerator(rescale=1./255)
 
 # Instantiating generator to feed images through the network
 generator = dataGenerator.flow_from_directory(
-    './algoritm/data/',
+    './aplicatie/algoritm/data/',
     target_size=(256, 256),
-    batch_size=32,
+    batch_size=20,
     class_mode='binary')
 
 # Checking class assignment
@@ -123,9 +130,11 @@ generator.class_indices
 
 # Rendering image X with label y for MesoNet
 X, y = next(generator)
-images,labels=get_images_and_labels('./algoritm/data/')
+
+
 meso.fit(generator,epochs=15)
-meso.model.save_weights("./algoritm/weights/Meso4/.weights.h5")
+
+
 # Evaluating prediction
 print(f"Predicted likelihood: {meso.predict(X)[0][0]:.4f}")
 print(f"Actual label: {int(y[0])}")
@@ -196,12 +205,11 @@ def plotter(images,preds):
     plt.show()
     return
 
-# Save the trained model
-meso.model.save('mesonet.h5')
+# Save the trained model using the HDF5 format
+meso.model.save('./aplicatie/configurations/mesonet.h5', save_format='h5')
 
-# Save the model accuracy
-with open('mesonet_accuracy.txt', 'w') as f:
-    f.write(f"Model accuracy: {percentage_correct:.4f}")
+# Optionally, save using the TensorFlow SavedModel format
+# meso.model.save('mesonet', save_format='tf')
 
 #plotter(correct_real, correct_real_pred)
 
