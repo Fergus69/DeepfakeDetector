@@ -117,7 +117,7 @@ dataGenerator = tf.keras.preprocessing.image.ImageDataGenerator(rescale=1./255)
 
 # Instantiating generator to feed images through the network
 generator = dataGenerator.flow_from_directory(
-    './aplicatie/algoritm/data/',
+    './algoritm/data/',
     target_size=(256, 256),
     batch_size=20,
     class_mode='binary')
