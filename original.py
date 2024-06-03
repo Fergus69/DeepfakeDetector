@@ -99,11 +99,8 @@ class Meso4(Classifier):
         x4 = BatchNormalization()(x4)
         x4 = MaxPooling2D(pool_size=(4, 4), padding='same')(x4)
 
-        x5 = Conv2D(32, (3, 3), padding='same', activation = 'relu')(x4)
-        x5 = BatchNormalization()(x4)
-        x5 = MaxPooling2D(pool_size=(4, 4), padding='same')(x5)
         
-        y = Flatten()(x5)
+        y = Flatten()(x4)
         y = Dropout(0.5)(y)
         y = Dense(16)(y)
         y = LeakyReLU(alpha=0.1)(y)
