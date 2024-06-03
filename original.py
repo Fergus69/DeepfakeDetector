@@ -136,7 +136,7 @@ generator.class_indices
 X, y = next(generator)
 
 
-meso.fit(generator,epochs=10)
+meso.fit(generator , epochs=15)
 
 
 # Evaluating prediction
