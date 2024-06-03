@@ -98,6 +98,10 @@ class Meso4(Classifier):
         x4 = Conv2D(16, (5, 5), padding='same', activation = 'relu')(x3)
         x4 = BatchNormalization()(x4)
         x4 = MaxPooling2D(pool_size=(4, 4), padding='same')(x4)
+
+        x5 = Conv2D(32, (3, 3), padding='same', activation = 'relu')(x3)
+        x5 = BatchNormalization()(x4)
+        x5 = MaxPooling2D(pool_size=(4, 4), padding='same')(x4)
         
         y = Flatten()(x3)
         y = Dropout(0.5)(y)
@@ -132,7 +136,7 @@ generator.class_indices
 X, y = next(generator)
 
 
-meso.fit(generator,epochs=15)
+meso.fit(generator,epochs=10)
 
 
 # Evaluating prediction
