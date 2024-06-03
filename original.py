@@ -99,11 +99,11 @@ class Meso4(Classifier):
         x4 = BatchNormalization()(x4)
         x4 = MaxPooling2D(pool_size=(4, 4), padding='same')(x4)
 
-        x5 = Conv2D(32, (3, 3), padding='same', activation = 'relu')(x3)
+        x5 = Conv2D(32, (3, 3), padding='same', activation = 'relu')(x4)
         x5 = BatchNormalization()(x4)
-        x5 = MaxPooling2D(pool_size=(4, 4), padding='same')(x4)
+        x5 = MaxPooling2D(pool_size=(4, 4), padding='same')(x5)
         
-        y = Flatten()(x3)
+        y = Flatten()(x5)
         y = Dropout(0.5)(y)
         y = Dense(16)(y)
         y = LeakyReLU(alpha=0.1)(y)
@@ -210,7 +210,7 @@ def plotter(images,preds):
     return
 
 # Save the trained model using the HDF5 format
-meso.model.save('./aplicatie/configurations/mesonet.h5', save_format='h5')
+meso.model.save('./configurations/mesonet.h5', save_format='h5')
 
 # Optionally, save using the TensorFlow SavedModel format
 # meso.model.save('mesonet', save_format='tf')
