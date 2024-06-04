@@ -233,9 +233,13 @@ meso.model.save('./configurations/mesonet.h5', save_format='h5')
 #plt.show(block=True)
 # Crearea graficului de acuratețe
 plt.figure(figsize=(10, 5))
-plt.plot(history.history['accuracy'], label='Acuratețe')
+plt.plot(history.history['accuracy'], label='Acuratețe', marker='x')
+for i, acc in enumerate(history.history['accuracy']):
+    plt.text(i, acc, f"{acc:.2f}", ha='center', va='bottom')
+
 plt.title('Acuratețea pe epoci')
 plt.xlabel('Epoci')
 plt.ylabel('Acuratețe')
 plt.legend()
-plt.show(block=True)
+plt.grid(True)  # Adăugarea unei grile pentru ușurința citirii
+plt.show()
