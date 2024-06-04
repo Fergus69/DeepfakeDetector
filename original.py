@@ -1,6 +1,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+from keras.callbacks import EarlyStopping
 from tensorflow import keras
 from keras.layers import Input, Dense, Flatten, Conv2D, MaxPooling2D, BatchNormalization, Dropout, Reshape, Concatenate, LeakyReLU
 from keras.optimizers import Adam
@@ -143,7 +144,7 @@ generator.class_indices
 X, y = next(generator)
 
 
-meso.fit(generator , epochs=15)
+history=meso.fit(generator , epochs=15)
 
 
 # Evaluating prediction
