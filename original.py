@@ -61,7 +61,9 @@ class Classifier:
         return self.model.predict(x)
     
     def fit(self, generator, epochs=1):
-        self.model.fit(generator, epochs=epochs, steps_per_epoch=len(generator.labels)//generator.batch_size)
+        # Adaugarea unui callback pentru oprire timpurie
+        early_stopping = EarlyStopping(monitor='accuracy', patience=5, verbose=1, mode='max')
+        return self.model.fit(generator, epochs=epochs, steps_per_epoch=len(generator.labels)//generator.batch_size, callbacks=[early_stopping])
     
     def get_accuracy(self, x, y):
         return self.model.test_on_batch(x, y)
@@ -141,7 +143,7 @@ generator.class_indices
 X, y = next(generator)
 
 
-meso.fit(generator , epochs=5)
+meso.fit(generator , epochs=15)
 
 
 # Evaluating prediction
@@ -228,3 +230,11 @@ meso.model.save('./configurations/mesonet.h5', save_format='h5')
 
 #plotter(misclassified_deepfake, misclassified_deepfake_pred)
 #plt.show(block=True)
+# Crearea graficului de acuratețe
+plt.figure(figsize=(10, 5))
+plt.plot(history.history['accuracy'], label='Acuratețe')
+plt.title('Acuratețea pe epoci')
+plt.xlabel('Epoci')
+plt.ylabel('Acuratețe')
+plt.legend()
+plt.show()
