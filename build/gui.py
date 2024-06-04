@@ -269,19 +269,17 @@ def alg():
             x1 = BatchNormalization()(x1)
             x1 = MaxPooling2D(pool_size=(2, 2), padding='same')(x1)
 
-            x2 = Conv2D(8, (5, 5), padding='same', activation = 'relu')(x1)
+            x2 = Conv2D(8, (3, 3), padding='same', activation = 'relu')(x1)
             x2 = BatchNormalization()(x2)
             x2 = MaxPooling2D(pool_size=(2, 2), padding='same')(x2)
 
-            x3 = Conv2D(16, (5, 5), padding='same', activation = 'relu')(x2)
+            x3 = Conv2D(16, (3, 3), padding='same', activation = 'relu')(x2)
             x3 = BatchNormalization()(x3)
             x3 = MaxPooling2D(pool_size=(2, 2), padding='same')(x3)
 
-            x4 = Conv2D(16, (5, 5), padding='same', activation = 'relu')(x3)
-            x4 = BatchNormalization()(x4)
-            x4 = MaxPooling2D(pool_size=(4, 4), padding='same')(x4)
+            
 
-            y = Flatten()(x4)
+            y = Flatten()(x3)
             y = Dropout(0.5)(y)
             y = Dense(16)(y)
             y = LeakyReLU(negative_slope=0.1)(y)
@@ -293,7 +291,7 @@ def alg():
     # Instantiate a MesoNet model with pretrained weights
     print("Current working directory: ", os.getcwd())
     meso = Meso4()
-    meso.load('./algoritm/weights/Meso4_DF.h5')
+    meso.load('./algoritm/weights/mesonet.h5')
 
     # Prepare image data
     
@@ -314,12 +312,6 @@ def alg():
 
     # Rendering image X with label y for MesoNet
     X, y = next(generator)
-    label = label_entry.get()
-    if label:
-        if label == 'True':
-            y[0]=1
-        else:    
-            y[0]=0
     # Evaluating prediction
     print(f"Predicted likelihood: {meso.predict(X)[0][0]:.4f}")
     print(f"Actual label: {int(y[0])}")
@@ -353,8 +345,7 @@ image_1 = canvas.create_image(
     anchor='center'
 )
 
-label_entry = ttk.Combobox(window, values=["True", "False"], state="readonly")
-label_entry.place(x=512, y=751)
+
 
 button_image_1 = PhotoImage(
     file=relative_to_assets("button_1.png"))
