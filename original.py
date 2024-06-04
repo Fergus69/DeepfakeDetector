@@ -100,11 +100,11 @@ class Meso4(Classifier):
         x4 = MaxPooling2D(pool_size=(4, 4), padding='same')(x4)
 
         x5 = Conv2D(32, (3, 3), padding='same', activation = 'relu')(x4)
-        x5 = BatchNormalization()(x4)
+        x5 = BatchNormalization()(x5)
         x5 = MaxPooling2D(pool_size=(4, 4), padding='same')(x5)
 
         x6 = Conv2D(32, (3, 3), padding='same', activation = 'relu')(x5)
-        x6 = BatchNormalization()(x4)
+        x6 = BatchNormalization()(x6)
         x6 = MaxPooling2D(pool_size=(4, 4), padding='same')(x6)
 
 
