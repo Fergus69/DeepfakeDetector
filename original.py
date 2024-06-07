@@ -6,11 +6,28 @@ from tensorflow import keras
 from keras.layers import Input, Dense, Flatten, Conv2D, MaxPooling2D, BatchNormalization, Dropout, Reshape, Concatenate, LeakyReLU
 from keras.optimizers import Adam
 from keras.models import Model
+from keras.callbacks import Callback
 import tensorflow as tf
 import os
 import cv2
 # Height and width refer to the size of the image
 # Channels refers to the amount of color channels (red, green, blue)
+
+class StepLogger(Callback):
+    def __init__(self, every=10):
+        self.every = every
+        self.accuracy = []
+        self.loss = []
+
+    def on_train_begin(self, logs=None):
+        self.accuracy = []
+        self.loss = []
+
+    def on_batch_end(self, batch, logs=None):
+        if batch % self.every == 0:
+            self.accuracy.append(logs['accuracy'])
+            self.loss.append(logs['loss'])
+
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
@@ -54,6 +71,8 @@ def get_images_and_labels(folder_path):
 image_dimensions = {'height':256, 'width':256, 'channels':3}
 # Create a Classifier class
 
+step_logger = StepLogger(every=10)
+
 class Classifier:
     def __init__():
         self.model = 0
@@ -61,11 +80,20 @@ class Classifier:
     def predict(self, x):
         return self.model.predict(x)
     
-    def fit(self, generator, epochs=1):
-        # Adaugarea unui callback pentru oprire timpurie
-        early_stopping = EarlyStopping(monitor='accuracy', patience=5, verbose=1, mode='max')
-        return self.model.fit(generator, epochs=epochs, steps_per_epoch=len(generator.labels)//generator.batch_size, callbacks=[early_stopping])
+    def fit(self, train_dataset, val_dataset, steps_per_epoch, validation_steps, epochs=1):
+    # Add a callback for early stopping
+        early_stopping = EarlyStopping(monitor='val_accuracy', patience=5, verbose=1, mode='max')
     
+        # Train the model using the training dataset and validate using the validation dataset
+        return self.model.fit(
+            train_dataset,
+            epochs=epochs,
+            steps_per_epoch=steps_per_epoch,
+            validation_data=val_dataset,
+            validation_steps=validation_steps,
+            callbacks=[early_stopping,step_logger]
+            ), epochs
+
     def get_accuracy(self, x, y):
         return self.model.test_on_batch(x, y)
     
@@ -125,34 +153,54 @@ meso = Meso4()
 # Prepare image data
 
 # Rescaling pixel values (between 1 and 255) to a range between 0 and 1
-dataGenerator = tf.keras.preprocessing.image.ImageDataGenerator(rescale=1./255)
+dataGenerator = tf.keras.preprocessing.image.ImageDataGenerator(rescale=1./255, validation_split=0.2)
 
 # Instantiating generator to feed images through the network
-generator = dataGenerator.flow_from_directory(
+train_generator = dataGenerator.flow_from_directory(
     './algoritm/data/',
     target_size=(256, 256),
     batch_size=20,
-    class_mode='binary')
+    class_mode='binary',
+    subset='training')
 
-# Checking class assignment
-generator.class_indices
-# '.ipynb_checkpoints' is a *hidden* file Jupyter creates for autosaves
-# It must be removed for flow_from_directory to work.
+validation_generator =dataGenerator.flow_from_directory(
+    './algoritm/data/',
+    target_size=(256, 256),
+    batch_size=20,
+    class_mode='binary',
+    subset='validation')
 
+train_dataset = tf.data.Dataset.from_generator(
+    lambda: train_generator,
+    output_types=(tf.float32, tf.float32),
+    output_shapes=([None, 256, 256, 3], [None])
+)
+
+validation_dataset = tf.data.Dataset.from_generator(
+    lambda: validation_generator,
+    output_types=(tf.float32, tf.float32),
+    output_shapes=([None, 256, 256, 3], [None])
+)
+
+# Apply the repeat() function to the datasets
+train_dataset = train_dataset.repeat()
+validation_dataset = validation_dataset.repeat()
+
+# Calculate steps per epoch
+steps_per_epoch = len(train_generator.labels) // train_generator.batch_size
+validation_steps = len(validation_generator.labels) // validation_generator.batch_size
 
 # Rendering image X with label y for MesoNet
-X, y = next(generator)
+X, y = next(validation_generator)
 
 
-history=meso.fit(generator , epochs=15)
+history,epochs=meso.fit(train_dataset, validation_dataset, steps_per_epoch, validation_steps, epochs=20)
 
 
 # Evaluating prediction
 print(f"Predicted likelihood: {meso.predict(X)[0][0]:.4f}")
 print(f"Actual label: {int(y[0])}")
 print(f"\nCorrect prediction: {round(meso.predict(X)[0][0])==y[0]}")
-# Showing image
-plt.imshow(np.squeeze(X[0]))
 
 
 # Creating separate lists for correctly classified and misclassified images
@@ -168,10 +216,10 @@ misclassified_real_pred = []
 misclassified_deepfake = []
 misclassified_deepfake_pred = []
 # Generating predictions on validation set, storing in separate lists
-for i in range(len(generator.labels)):
+for i in range(len(validation_generator.labels)):
     
     # Loading next picture, generating prediction
-    X, y = next(generator)
+    X, y = next(validation_generator)
     pred = meso.predict(X)[0][0]
     
     # Sorting into proper category
@@ -189,11 +237,11 @@ for i in range(len(generator.labels)):
         misclassified_deepfake_pred.append(pred)   
         
     # Printing status update
-    if i % 1000 == 0:
+    if i % 100 == 0:
         print(i, ' predictions completed.')
     
-    if i == len(generator.labels)-1:
-        print("All", len(generator.labels), "predictions completed")
+    if i == len(validation_generator.labels)-1:
+        print("All", len(validation_generator.labels), "predictions completed")
 
 # Add these lines after the last loop in the code
 total_predictions = len(correct_real) + len(correct_deepfake) + len(misclassified_real) + len(misclassified_deepfake)
@@ -231,15 +279,51 @@ meso.model.save('./configurations/mesonet.h5', save_format='h5')
 
 #plotter(misclassified_deepfake, misclassified_deepfake_pred)
 #plt.show(block=True)
-# Crearea graficului de acuratețe
-plt.figure(figsize=(10, 5))
-plt.plot(history.history['accuracy'], label='Acuratețe', marker='x')
-for i, acc in enumerate(history.history['accuracy']):
-    plt.text(i, acc, f"{acc:.2f}", ha='center', va='bottom')
+fig, ax1 = plt.subplots(figsize=(10, 5))
 
-plt.title('Acuratețea pe epoci')
-plt.xlabel('Epoci')
-plt.ylabel('Acuratețe')
-plt.legend()
-plt.grid(True)  # Adăugarea unei grile pentru ușurința citirii
+# Plot accuracy on the primary y-axis
+color = 'tab:blue'
+ax1.set_xlabel('Pași')
+ax1.set_ylabel('Acuratețe', color=color)
+line1, = ax1.plot(step_logger.accuracy, label='Acuratețe', marker='o', linestyle='-', color=color)
+ax1.tick_params(axis='y', labelcolor=color)
+
+# Set the x-ticks to the appropriate positions
+num_steps = len(step_logger.accuracy)
+x_ticks = np.arange(0, num_steps, step=(steps_per_epoch // 10))
+x_tick_labels = x_ticks * 10
+ax1.set_xticks(x_ticks)
+ax1.set_xticklabels(x_tick_labels)
+
+# Add vertical red dotted lines to delimit epochs and label them in the middle
+max_accuracy = max(step_logger.accuracy)
+min_accuracy = min(step_logger.accuracy)
+middle_accuracy = (max_accuracy + min_accuracy) / 2
+
+for epoch in range(epochs):
+    x_position = epoch * (steps_per_epoch // 10)
+    ax1.axvline(x=x_position, color='red', linestyle='--', linewidth=0.4)
+    ax1.text(x_position, middle_accuracy, f'Epoca {epoch + 1}', rotation=90, color='red')
+
+# Plot loss on a secondary y-axis
+ax2 = ax1.twinx()
+color = 'tab:green'
+ax2.set_ylabel('Pierdere', color=color)
+line2, = ax2.plot(step_logger.loss, label='Pierdere', marker='x', linestyle='-', color=color)
+ax2.tick_params(axis='y', labelcolor=color)
+
+# Combine legends from both y-axes
+lines = [line1, line2]
+labels = [line.get_label() for line in lines]
+ax1.legend(lines, labels, loc='upper left')
+
+ax1.text(0.95, 0.9, f'Acuratețe Validare: {percentage_correct:.2f}%', transform=ax1.transAxes, 
+         horizontalalignment='right', verticalalignment='top', color='black', fontsize=12)
+
+plt.title('Acuratețea și Pierderea pe Pași')
+plt.xlabel('Pași')
+fig.subplots_adjust(top=0.85)  # Adjust top margin to provide enough space for decorations
+plt.grid(True)
+plt.savefig('acuratete_si_pierdere_pe_pasi.png')
 plt.show()
+
