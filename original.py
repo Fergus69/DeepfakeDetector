@@ -1,7 +1,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from keras.callbacks import EarlyStopping
+from keras.callbacks import EarlyStopping,LearningRateScheduler
 from tensorflow import keras
 from keras.layers import Input, Dense, Flatten, Conv2D, MaxPooling2D, BatchNormalization, Dropout, Reshape, Concatenate, LeakyReLU
 from keras.optimizers import Adam
@@ -41,22 +41,41 @@ class ValidationAccuracyLogger(Callback):
         self.steps_per_epoch = params['steps']
 
     def on_epoch_begin(self, epoch, logs=None):
-        self.mid_epoch_logged = False
+        self.validation_logs = [False, False, False, False]
         self.epoch=self.epoch+1
 
     def on_batch_end(self, batch, logs=None):
-        if not self.mid_epoch_logged and batch >= self.steps_per_epoch // 2:
-            accuracy = validation_func()
-            self.validation_accuracy.append(accuracy / 100)
-            print(f'Validation accuracy at midpoint of epoch {self.epoch} is {accuracy:.2f}%')
-            self.mid_epoch_logged = True
+        validation_intervals = [
+            self.steps_per_epoch // 4,
+            self.steps_per_epoch // 2,
+            3 * self.steps_per_epoch // 4,
+            self.steps_per_epoch
+        ]
+
+        for i, interval in enumerate(validation_intervals):
+            if not self.validation_logs[i] and batch >= interval:
+                accuracy = validation_func()
+                self.validation_accuracy.append(accuracy / 100)
+                print(f'Validation accuracy at interval {i+1} of epoch {self.epoch} is {accuracy:.2f}%')
+                self.validation_logs[i] = True
 
     def on_epoch_end(self, epoch, logs=None):
-        accuracy = validation_func()
-        self.validation_accuracy.append(accuracy / 100)
-        print(f'Validation accuracy for epoch {epoch+1} is {accuracy:.2f}%')
+        # Optionally, validate at the end of the epoch if not already done
+        if not self.validation_logs[-1]:
+            accuracy = validation_func()
+            self.validation_accuracy.append(accuracy / 100)
+            print(f'Validation accuracy at end of epoch {self.epoch} is {accuracy:.2f}%')
 
+def lr_schedule(epoch,initial_lr=0.001):
+    initial_lr = 0.001
+    if epoch < 5:
+        return initial_lr
+    elif epoch < 10:
+        return initial_lr / 2
+    else:
+        return initial_lr / 4
 
+lr_scheduler = LearningRateScheduler(lr_schedule)
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
@@ -111,16 +130,17 @@ class Classifier:
     
     def fit(self, train_dataset, val_dataset, steps_per_epoch, validation_steps, epochs=1):
     # Add a callback for early stopping
-        early_stopping = EarlyStopping(monitor='val_accuracy', patience=5, verbose=1, mode='max')
+        early_stopping = EarlyStopping(monitor='val_accuracy', patience=10, verbose=1, mode='max',restore_best_weights=True,)
     
         # Train the model using the training dataset and validate using the validation dataset
         return self.model.fit(
             train_dataset,
             epochs=epochs,
             steps_per_epoch=steps_per_epoch,
+            shuffle=True,
             validation_data=val_dataset,
             validation_steps=validation_steps,
-            callbacks=[early_stopping,step_logger,validation_logger]
+            callbacks=[early_stopping,step_logger,validation_logger,lr_scheduler]
             ), epochs
 
     def get_accuracy(self, x, y):
@@ -159,16 +179,9 @@ class Meso4(Classifier):
         x4 = BatchNormalization()(x4)
         x4 = MaxPooling2D(pool_size=(4, 4), padding='same')(x4)
 
-        x5 = Conv2D(32, (3, 3), padding='same', activation = 'relu')(x4)
-        x5 = BatchNormalization()(x5)
-        x5 = MaxPooling2D(pool_size=(4, 4), padding='same')(x5)
+        
 
-        x6 = Conv2D(32, (3, 3), padding='same', activation = 'relu')(x5)
-        x6 = BatchNormalization()(x6)
-        x6 = MaxPooling2D(pool_size=(4, 4), padding='same')(x6)
-
-
-        y = Flatten()(x6)
+        y = Flatten()(x4)
         y = Dropout(0.5)(y)
         y = Dense(16)(y)
         y = LeakyReLU(alpha=0.1)(y)
@@ -188,7 +201,7 @@ dataGenerator = tf.keras.preprocessing.image.ImageDataGenerator(rescale=1./255, 
 train_generator = dataGenerator.flow_from_directory(
     './algoritm/data/',
     target_size=(256, 256),
-    batch_size=20,
+    batch_size=40,
     class_mode='binary',
     subset='training',
     shuffle=True)  # Enable shuffling for the training generator
@@ -196,7 +209,7 @@ train_generator = dataGenerator.flow_from_directory(
 validation_generator = dataGenerator.flow_from_directory(
     './algoritm/data/',
     target_size=(256, 256),
-    batch_size=20,
+    batch_size=40,
     class_mode='binary',
     subset='validation',
     shuffle=True)  # Enable shuffling for the validation generator
@@ -205,22 +218,24 @@ train_dataset = tf.data.Dataset.from_generator(
     lambda: train_generator,
     output_types=(tf.float32, tf.float32),
     output_shapes=([None, 256, 256, 3], [None])
-).shuffle(buffer_size=1600,reshuffle_each_iteration=True)  # Shuffle the dataset with a buffer size
+)
+train_dataset.shuffle(buffer_size=len(train_generator.labels),reshuffle_each_iteration=True)  # Shuffle the dataset with a buffer size
 
 validation_dataset = tf.data.Dataset.from_generator(
     lambda: validation_generator,
     output_types=(tf.float32, tf.float32),
     output_shapes=([None, 256, 256, 3], [None])
-).shuffle(buffer_size=400,reshuffle_each_iteration=True)  # Shuffle the dataset with a buffer size
+)
+
+validation_dataset.shuffle(buffer_size=len(validation_generator.labels),reshuffle_each_iteration=True)  # Shuffle the dataset with a buffer size
 
 # Apply the repeat() function to the datasets
-train_dataset = train_dataset.repeat()
-validation_dataset = validation_dataset.repeat()
+#train_dataset = train_dataset.repeat()
+#validation_dataset = validation_dataset.repeat()
 
 # Calculate steps per epoch
 steps_per_epoch = len(train_generator.labels) // train_generator.batch_size
 validation_steps = len(validation_generator.labels) // validation_generator.batch_size
-
 # Rendering image X with label y for MesoNet
 X, y = next(validation_generator)
 validation_logger=ValidationAccuracyLogger()
@@ -237,40 +252,42 @@ def validation_func():
 
     misclassified_deepfake = []
     misclassified_deepfake_pred = []
-    # Generating predictions on validation set, storing in separate lists
-    for i in range(len(validation_generator.labels)):
 
-        # Loading next picture, generating prediction
-        X, y = next(validation_generator)
-        pred = meso.predict(X)[0][0]
+    # Iterate over the validation dataset
+    total_samples = 0
+    correct_predictions = 0
+    
+    for X, y in validation_dataset.take(validation_steps):
+        preds = meso.predict(X)
+        total_samples += len(y)
+        
+        for j in range(len(y)):
+            pred = preds[j][0]
 
-        # Sorting into proper category
-        if round(pred)==y[0] and y[0]==1:
-            correct_real.append(X)
-            correct_real_pred.append(pred)
-        elif round(pred)==y[0] and y[0]==0:
-            correct_deepfake.append(X)
-            correct_deepfake_pred.append(pred)
-        elif y[0]==1:
-            misclassified_real.append(X)
-            misclassified_real_pred.append(pred)
-        else:
-            misclassified_deepfake.append(X)
-            misclassified_deepfake_pred.append(pred)   
+            # Sorting into proper category
+            if round(pred) == y[j] and y[j] == 1:
+                correct_real.append(X[j])
+                correct_real_pred.append(pred)
+                correct_predictions += 1
+            elif round(pred) == y[j] and y[j] == 0:
+                correct_deepfake.append(X[j])
+                correct_deepfake_pred.append(pred)
+                correct_predictions += 1
+            elif y[j] == 1:
+                misclassified_real.append(X[j])
+                misclassified_real_pred.append(pred)
+            else:
+                misclassified_deepfake.append(X[j])
+                misclassified_deepfake_pred.append(pred)
 
         # Printing status update
-        if i % 100 == 0:
-            print(i, ' predictions completed.')
+        if total_samples % 100 == 0:  # Print status every 100 samples
+            print(f"{total_samples} predictions completed.")
 
-        if i == len(validation_generator.labels)-1:
-            print("All", len(validation_generator.labels), "predictions completed")
+    print(f"All {total_samples} predictions completed")
 
-    # Add these lines after the last loop in the code
-    total_predictions = len(correct_real) + len(correct_deepfake) + len(misclassified_real) + len(misclassified_deepfake)
-
-    correct_predictions = len(correct_real) + len(correct_deepfake)
-
-    percentage_correct = (correct_predictions / total_predictions) * 100
+    # Calculate percentage of correct predictions
+    percentage_correct = (correct_predictions / total_samples) * 100
 
     print(f"Percentage of correct guesses: {percentage_correct:.2f}%")
     return percentage_correct
@@ -289,14 +306,15 @@ meso.model.save('./configurations/mesonet.h5', save_format='h5')
 
 # Plotting accuracy from StepLogger and ValidationAccuracyLogger
 training_x_values = range(0 + step_logger.every, last_epoch * steps_per_epoch + step_logger.every, step_logger.every)
-validation_x_values = range(0 + steps_per_epoch // 2, last_epoch * steps_per_epoch + steps_per_epoch, steps_per_epoch // 2)
+validation_x_values = range(0 + steps_per_epoch // 4, last_epoch * steps_per_epoch + steps_per_epoch, steps_per_epoch // 4)
+
 
 plt.figure(figsize=(10, 5))
-plt.plot(training_x_values[:len(step_logger.accuracy)], step_logger.accuracy, label='Training Accuracy (StepLogger)', marker='x')
-plt.plot(validation_x_values[:len(validation_logger.validation_accuracy)], validation_logger.validation_accuracy, label='Validation Accuracy (ValidationAccuracyLogger)', marker='^')
+plt.plot(training_x_values[:len(step_logger.accuracy)], step_logger.accuracy, label='Acuratețea la antrenare', marker='x')
+plt.plot(validation_x_values[:len(validation_logger.validation_accuracy)], validation_logger.validation_accuracy, label='Acuratețea la validare', marker='^')
 for i in range(0,last_epoch*steps_per_epoch,steps_per_epoch):
     plt.axvline(x=i, color='red', linestyle='--',linewidth=0.4)
-    plt.text(i, (max(step_logger.accuracy) + min(step_logger.accuracy))/2, f'Epoca {i // steps_per_epoch + 1}', color='red', rotation=90, verticalalignment='bottom')
+    plt.text(i, min(validation_logger.validation_accuracy), f'Epoca {i // steps_per_epoch + 1}', color='red', rotation=90, verticalalignment='bottom')
 plt.xlabel('Pași')
 plt.ylabel('Acuratețea')
 plt.title('Acuratețea la antrenare și validare')
