@@ -14,7 +14,7 @@ import cv2
 # Channels refers to the amount of color channels (red, green, blue)
 
 class StepLogger(Callback):
-    def __init__(self, every=10):
+    def __init__(self, every=5):
         self.every = every
         self.accuracy = []
         self.loss = []
@@ -27,6 +27,35 @@ class StepLogger(Callback):
         if batch % self.every == 0:
             self.accuracy.append(logs['accuracy'])
             self.loss.append(logs['loss'])
+
+step_logger = StepLogger(every=5)
+
+class ValidationAccuracyLogger(Callback):
+    def __init__(self):
+        super().__init__()
+        self.validation_accuracy = []
+        self.steps_per_epoch = 0
+        self.epoch=0
+
+    def set_params(self, params):
+        self.steps_per_epoch = params['steps']
+
+    def on_epoch_begin(self, epoch, logs=None):
+        self.mid_epoch_logged = False
+        self.epoch=self.epoch+1
+
+    def on_batch_end(self, batch, logs=None):
+        if not self.mid_epoch_logged and batch >= self.steps_per_epoch // 2:
+            accuracy = validation_func()
+            self.validation_accuracy.append(accuracy / 100)
+            print(f'Validation accuracy at midpoint of epoch {self.epoch} is {accuracy:.2f}%')
+            self.mid_epoch_logged = True
+
+    def on_epoch_end(self, epoch, logs=None):
+        accuracy = validation_func()
+        self.validation_accuracy.append(accuracy / 100)
+        print(f'Validation accuracy for epoch {epoch+1} is {accuracy:.2f}%')
+
 
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -71,7 +100,7 @@ def get_images_and_labels(folder_path):
 image_dimensions = {'height':256, 'width':256, 'channels':3}
 # Create a Classifier class
 
-step_logger = StepLogger(every=10)
+
 
 class Classifier:
     def __init__():
@@ -91,7 +120,7 @@ class Classifier:
             steps_per_epoch=steps_per_epoch,
             validation_data=val_dataset,
             validation_steps=validation_steps,
-            callbacks=[early_stopping,step_logger]
+            callbacks=[early_stopping,step_logger,validation_logger]
             ), epochs
 
     def get_accuracy(self, x, y):
@@ -161,26 +190,28 @@ train_generator = dataGenerator.flow_from_directory(
     target_size=(256, 256),
     batch_size=20,
     class_mode='binary',
-    subset='training')
+    subset='training',
+    shuffle=True)  # Enable shuffling for the training generator
 
-validation_generator =dataGenerator.flow_from_directory(
+validation_generator = dataGenerator.flow_from_directory(
     './algoritm/data/',
     target_size=(256, 256),
     batch_size=20,
     class_mode='binary',
-    subset='validation')
+    subset='validation',
+    shuffle=True)  # Enable shuffling for the validation generator
 
 train_dataset = tf.data.Dataset.from_generator(
     lambda: train_generator,
     output_types=(tf.float32, tf.float32),
     output_shapes=([None, 256, 256, 3], [None])
-)
+).shuffle(buffer_size=1600,reshuffle_each_iteration=True)  # Shuffle the dataset with a buffer size
 
 validation_dataset = tf.data.Dataset.from_generator(
     lambda: validation_generator,
     output_types=(tf.float32, tf.float32),
     output_shapes=([None, 256, 256, 3], [None])
-)
+).shuffle(buffer_size=400,reshuffle_each_iteration=True)  # Shuffle the dataset with a buffer size
 
 # Apply the repeat() function to the datasets
 train_dataset = train_dataset.repeat()
@@ -192,10 +223,59 @@ validation_steps = len(validation_generator.labels) // validation_generator.batc
 
 # Rendering image X with label y for MesoNet
 X, y = next(validation_generator)
+validation_logger=ValidationAccuracyLogger()
+def validation_func():
+    # Creating separate lists for correctly classified and misclassified images
+    correct_real = []
+    correct_real_pred = []
 
+    correct_deepfake = []
+    correct_deepfake_pred = []
 
-history,epochs=meso.fit(train_dataset, validation_dataset, steps_per_epoch, validation_steps, epochs=20)
+    misclassified_real = []
+    misclassified_real_pred = []
 
+    misclassified_deepfake = []
+    misclassified_deepfake_pred = []
+    # Generating predictions on validation set, storing in separate lists
+    for i in range(len(validation_generator.labels)):
+
+        # Loading next picture, generating prediction
+        X, y = next(validation_generator)
+        pred = meso.predict(X)[0][0]
+
+        # Sorting into proper category
+        if round(pred)==y[0] and y[0]==1:
+            correct_real.append(X)
+            correct_real_pred.append(pred)
+        elif round(pred)==y[0] and y[0]==0:
+            correct_deepfake.append(X)
+            correct_deepfake_pred.append(pred)
+        elif y[0]==1:
+            misclassified_real.append(X)
+            misclassified_real_pred.append(pred)
+        else:
+            misclassified_deepfake.append(X)
+            misclassified_deepfake_pred.append(pred)   
+
+        # Printing status update
+        if i % 100 == 0:
+            print(i, ' predictions completed.')
+
+        if i == len(validation_generator.labels)-1:
+            print("All", len(validation_generator.labels), "predictions completed")
+
+    # Add these lines after the last loop in the code
+    total_predictions = len(correct_real) + len(correct_deepfake) + len(misclassified_real) + len(misclassified_deepfake)
+
+    correct_predictions = len(correct_real) + len(correct_deepfake)
+
+    percentage_correct = (correct_predictions / total_predictions) * 100
+
+    print(f"Percentage of correct guesses: {percentage_correct:.2f}%")
+    return percentage_correct
+history,epochs=meso.fit(train_dataset, validation_dataset, steps_per_epoch, validation_steps, epochs=40)
+last_epoch=len(history.history['accuracy'])
 
 # Evaluating prediction
 print(f"Predicted likelihood: {meso.predict(X)[0][0]:.4f}")
@@ -203,127 +283,38 @@ print(f"Actual label: {int(y[0])}")
 print(f"\nCorrect prediction: {round(meso.predict(X)[0][0])==y[0]}")
 
 
-# Creating separate lists for correctly classified and misclassified images
-correct_real = []
-correct_real_pred = []
-
-correct_deepfake = []
-correct_deepfake_pred = []
-
-misclassified_real = []
-misclassified_real_pred = []
-
-misclassified_deepfake = []
-misclassified_deepfake_pred = []
-# Generating predictions on validation set, storing in separate lists
-for i in range(len(validation_generator.labels)):
-    
-    # Loading next picture, generating prediction
-    X, y = next(validation_generator)
-    pred = meso.predict(X)[0][0]
-    
-    # Sorting into proper category
-    if round(pred)==y[0] and y[0]==1:
-        correct_real.append(X)
-        correct_real_pred.append(pred)
-    elif round(pred)==y[0] and y[0]==0:
-        correct_deepfake.append(X)
-        correct_deepfake_pred.append(pred)
-    elif y[0]==1:
-        misclassified_real.append(X)
-        misclassified_real_pred.append(pred)
-    else:
-        misclassified_deepfake.append(X)
-        misclassified_deepfake_pred.append(pred)   
-        
-    # Printing status update
-    if i % 100 == 0:
-        print(i, ' predictions completed.')
-    
-    if i == len(validation_generator.labels)-1:
-        print("All", len(validation_generator.labels), "predictions completed")
-
-# Add these lines after the last loop in the code
-total_predictions = len(correct_real) + len(correct_deepfake) + len(misclassified_real) + len(misclassified_deepfake)
-
-correct_predictions = len(correct_real) + len(correct_deepfake)
-
-percentage_correct = (correct_predictions / total_predictions) * 100
-
-print(f"Percentage of correct guesses: {percentage_correct:.2f}%")
-def plotter(images,preds):
-    fig = plt.figure(figsize=(16,9))
-    subset = np.random.randint(0, len(images)-1, 12)
-    for i,j in enumerate(subset):
-        fig.add_subplot(3,4,i+1)
-        plt.imshow(np.squeeze(images[j]))
-        plt.xlabel(f"Model confidence: \n{preds[j]:.4f}")
-        plt.tight_layout()
-        ax = plt.gca()
-        ax.axes.xaxis.set_ticks([])
-        ax.axes.yaxis.set_ticks([])
-    plt.show()
-    return
-
 # Save the trained model using the HDF5 format
 meso.model.save('./configurations/mesonet.h5', save_format='h5')
 
-# Optionally, save using the TensorFlow SavedModel format
-# meso.model.save('mesonet', save_format='tf')
 
-#plotter(correct_real, correct_real_pred)
+# Plotting accuracy from StepLogger and ValidationAccuracyLogger
+training_x_values = range(0 + step_logger.every, last_epoch * steps_per_epoch + step_logger.every, step_logger.every)
+validation_x_values = range(0 + steps_per_epoch // 2, last_epoch * steps_per_epoch + steps_per_epoch, steps_per_epoch // 2)
 
-#plotter(misclassified_real, misclassified_real_pred)
-
-#plotter(correct_deepfake, correct_deepfake_pred)
-
-#plotter(misclassified_deepfake, misclassified_deepfake_pred)
-#plt.show(block=True)
-fig, ax1 = plt.subplots(figsize=(10, 5))
-
-# Plot accuracy on the primary y-axis
-color = 'tab:blue'
-ax1.set_xlabel('Pași')
-ax1.set_ylabel('Acuratețe', color=color)
-line1, = ax1.plot(step_logger.accuracy, label='Acuratețe', marker='o', linestyle='-', color=color)
-ax1.tick_params(axis='y', labelcolor=color)
-
-# Set the x-ticks to the appropriate positions
-num_steps = len(step_logger.accuracy)
-x_ticks = np.arange(0, num_steps, step=(steps_per_epoch // 10))
-x_tick_labels = x_ticks * 10
-ax1.set_xticks(x_ticks)
-ax1.set_xticklabels(x_tick_labels)
-
-# Add vertical red dotted lines to delimit epochs and label them in the middle
-max_accuracy = max(step_logger.accuracy)
-min_accuracy = min(step_logger.accuracy)
-middle_accuracy = (max_accuracy + min_accuracy) / 2
-
-for epoch in range(epochs):
-    x_position = epoch * (steps_per_epoch // 10)
-    ax1.axvline(x=x_position, color='red', linestyle='--', linewidth=0.4)
-    ax1.text(x_position, middle_accuracy, f'Epoca {epoch + 1}', rotation=90, color='red')
-
-# Plot loss on a secondary y-axis
-ax2 = ax1.twinx()
-color = 'tab:green'
-ax2.set_ylabel('Pierdere', color=color)
-line2, = ax2.plot(step_logger.loss, label='Pierdere', marker='x', linestyle='-', color=color)
-ax2.tick_params(axis='y', labelcolor=color)
-
-# Combine legends from both y-axes
-lines = [line1, line2]
-labels = [line.get_label() for line in lines]
-ax1.legend(lines, labels, loc='upper left')
-
-ax1.text(0.95, 0.9, f'Acuratețe Validare: {percentage_correct:.2f}%', transform=ax1.transAxes, 
-         horizontalalignment='right', verticalalignment='top', color='black', fontsize=12)
-
-plt.title('Acuratețea și Pierderea pe Pași')
+plt.figure(figsize=(10, 5))
+plt.plot(training_x_values[:len(step_logger.accuracy)], step_logger.accuracy, label='Training Accuracy (StepLogger)', marker='x')
+plt.plot(validation_x_values[:len(validation_logger.validation_accuracy)], validation_logger.validation_accuracy, label='Validation Accuracy (ValidationAccuracyLogger)', marker='^')
+for i in range(0,last_epoch*steps_per_epoch,steps_per_epoch):
+    plt.axvline(x=i, color='red', linestyle='--',linewidth=0.4)
+    plt.text(i, (max(step_logger.accuracy) + min(step_logger.accuracy))/2, f'Epoca {i // steps_per_epoch + 1}', color='red', rotation=90, verticalalignment='bottom')
 plt.xlabel('Pași')
-fig.subplots_adjust(top=0.85)  # Adjust top margin to provide enough space for decorations
+plt.ylabel('Acuratețea')
+plt.title('Acuratețea la antrenare și validare')
+plt.legend()
 plt.grid(True)
-plt.savefig('acuratete_si_pierdere_pe_pasi.png')
+plt.savefig('accuracy_plot.png')
 plt.show()
 
+# Plotting loss from StepLogger
+plt.figure(figsize=(10, 5))
+plt.plot(range(0+step_logger.every,last_epoch*steps_per_epoch+step_logger.every,step_logger.every),step_logger.loss, label='Pierderea pe pași',marker='x')
+for i in range(0,last_epoch*steps_per_epoch,steps_per_epoch):
+    plt.axvline(x=i, color='red', linestyle='--',linewidth=0.4)
+    plt.text(i, (max(step_logger.accuracy) + min(step_logger.accuracy))/2, f'Epoca {i // steps_per_epoch + 1}', color='red', rotation=90, verticalalignment='bottom')
+plt.xlabel('Pași')
+plt.ylabel('Pierderea')
+plt.title('Pierderea la antrenare')
+plt.legend()
+plt.grid(True)
+plt.savefig('loss_plot.png')
+plt.show()
