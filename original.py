@@ -163,31 +163,22 @@ class Meso4(Classifier):
                            image_dimensions['width'],
                            image_dimensions['channels']))
         
-        x1 = Conv2D(8, (3, 3), padding='same', activation = 'relu')(x)
+        x1 = Dense(500, activation='relu')(x)
         x1 = BatchNormalization()(x1)
-        x1 = MaxPooling2D(pool_size=(2, 2), padding='same')(x1)
-        
-        x2 = Conv2D(8, (5, 5), padding='same', activation = 'relu')(x1)
+
+        x2 = Dense(100, activation='relu')(x1)
         x2 = BatchNormalization()(x2)
-        x2 = MaxPooling2D(pool_size=(2, 2), padding='same')(x2)
-        
-        x3 = Conv2D(16, (5, 5), padding='same', activation = 'relu')(x2)
+
+        x3 = Dense(20, activation='relu')(x2)
         x3 = BatchNormalization()(x3)
-        x3 = MaxPooling2D(pool_size=(2, 2), padding='same')(x3)
-        
-        x4 = Conv2D(16, (5, 5), padding='same', activation = 'relu')(x3)
+
+        x4 = Dense(5, activation='relu')(x3)
         x4 = BatchNormalization()(x4)
-        x4 = MaxPooling2D(pool_size=(4, 4), padding='same')(x4)
-
-        x5 = Conv2D(32, (5, 5), padding='same', activation = 'relu')(x4)
-        x5 = BatchNormalization()(x5)
-        x5 = MaxPooling2D(pool_size=(4, 4), padding='same')(x5)
 
 
-        y = Flatten()(x5)
+        y = Flatten()(x4)
         y = Dropout(0.5)(y)
-        y = Dense(16)(y)
-        y = LeakyReLU(alpha=0.1)(y)
+        y = LeakyReLU(negative_slope=0.1)(y)
         y = Dropout(0.5)(y)
         y = Dense(1, activation = 'sigmoid')(y)
 
@@ -204,7 +195,7 @@ dataGenerator = tf.keras.preprocessing.image.ImageDataGenerator(rescale=1./255, 
 train_generator = dataGenerator.flow_from_directory(
     './algoritm/data/',
     target_size=(256, 256),
-    batch_size=40,
+    batch_size=20,
     class_mode='binary',
     subset='training',
     shuffle=True)  # Enable shuffling for the training generator
@@ -212,7 +203,7 @@ train_generator = dataGenerator.flow_from_directory(
 validation_generator = dataGenerator.flow_from_directory(
     './algoritm/data/',
     target_size=(256, 256),
-    batch_size=40,
+    batch_size=20,
     class_mode='binary',
     subset='validation',
     shuffle=True)  # Enable shuffling for the validation generator
