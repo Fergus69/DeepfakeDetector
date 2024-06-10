@@ -69,13 +69,28 @@ class ValidationAccuracyLogger(Callback):
 def lr_schedule(epoch,initial_lr=0.001):
     initial_lr = 0.001
     if epoch < 5:
-        return initial_lr
+        return initial_lr *0.95
     elif epoch < 10:
         return initial_lr / 2
     else:
         return initial_lr / 4
 
 lr_scheduler = LearningRateScheduler(lr_schedule)
+
+def add_random_noise(image):
+    """Adds random Gaussian noise to an image."""
+    noise_factor = 0.2
+    noise = np.random.randn(*image.shape) * noise_factor
+    image_noisy = image + noise
+    image_noisy = np.clip(image_noisy, 0., 1.)
+    return image_noisy
+
+def adjust_contrast(image, contrast_factor=1.5):
+    """Adjusts the contrast of an image by scaling pixel values."""
+    mean = np.mean(image)
+    image_contrasted = (image - mean) * contrast_factor + mean
+    image_contrasted = np.clip(image_contrasted, 0, 255)  # Ensure pixel values stay within [0, 255]
+    return image_contrasted
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
@@ -163,21 +178,30 @@ class Meso4(Classifier):
                            image_dimensions['width'],
                            image_dimensions['channels']))
         
-        x1 = Dense(500, activation='relu')(x)
+        x1 = Conv2D(8, (3, 3), padding = 'same', activation = 'relu')(x)
         x1 = BatchNormalization()(x1)
-
-        x2 = Dense(100, activation='relu')(x1)
+        x1 = MaxPooling2D(pool_size = (2,2), padding = 'same')(x1)
+        
+        x2 = Conv2D(8, (5, 5), padding = 'same', activation = 'relu')(x1)
         x2 = BatchNormalization()(x2)
+        x2 = MaxPooling2D(pool_size = (2,2), padding = 'same')(x2)
 
-        x3 = Dense(20, activation='relu')(x2)
+        x3 = Conv2D(16, (5, 5), padding = 'same', activation = 'relu')(x2)
         x3 = BatchNormalization()(x3)
+        x3 = MaxPooling2D(pool_size = (2,2), padding = 'same')(x3)
 
-        x4 = Dense(5, activation='relu')(x3)
+        x4 = Conv2D(16, (5, 5), padding = 'same', activation = 'relu')(x3)
         x4 = BatchNormalization()(x4)
+        x4 = MaxPooling2D(pool_size = (2,2), padding = 'same')(x4)
+
+        x5 = Conv2D(32, (3, 3), padding = 'same', activation = 'relu')(x4)
+        x5 = BatchNormalization()(x5)
+        x5 = MaxPooling2D(pool_size = (2,2), padding = 'same')(x5)
 
 
-        y = Flatten()(x4)
+        y = Flatten()(x5)
         y = Dropout(0.5)(y)
+        y = Dense(16)(y)
         y = LeakyReLU(negative_slope=0.1)(y)
         y = Dropout(0.5)(y)
         y = Dense(1, activation = 'sigmoid')(y)
@@ -189,13 +213,23 @@ meso = Meso4()
 # Prepare image data
 
 # Rescaling pixel values (between 1 and 255) to a range between 0 and 1
-dataGenerator = tf.keras.preprocessing.image.ImageDataGenerator(rescale=1./255, validation_split=0.2)
+dataGenerator = tf.keras.preprocessing.image.ImageDataGenerator(
+    rescale=1./255, 
+    validation_split=0.2,
+    rotation_range=40,
+    width_shift_range=0.2,  # Translates the images horizontally by up to 20% of the width
+    height_shift_range=0.2,  # Translates the images vertically by up to 20% of the height
+    horizontal_flip=True,  # Enables horizontal flipping
+    vertical_flip=True,  # Enables vertical flipping
+    preprocessing_function=adjust_contrast,
+
+    fill_mode='nearest')
 
 # Instantiating generator to feed images through the network
 train_generator = dataGenerator.flow_from_directory(
     './algoritm/data/',
     target_size=(256, 256),
-    batch_size=20,
+    batch_size=40,
     class_mode='binary',
     subset='training',
     shuffle=True)  # Enable shuffling for the training generator
@@ -203,7 +237,7 @@ train_generator = dataGenerator.flow_from_directory(
 validation_generator = dataGenerator.flow_from_directory(
     './algoritm/data/',
     target_size=(256, 256),
-    batch_size=20,
+    batch_size=40,
     class_mode='binary',
     subset='validation',
     shuffle=True)  # Enable shuffling for the validation generator
@@ -285,7 +319,7 @@ def validation_func():
 
     print(f"Percentage of correct guesses: {percentage_correct:.2f}%")
     return percentage_correct
-history,epochs=meso.fit(train_dataset, validation_dataset, steps_per_epoch, validation_steps, epochs=40)
+history,epochs=meso.fit(train_dataset, validation_dataset, steps_per_epoch, validation_steps, epochs=20)
 last_epoch=len(history.history['accuracy'])
 
 # Evaluating prediction
