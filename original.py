@@ -212,14 +212,14 @@ meso = Meso4()
 dataGenerator = tf.keras.preprocessing.image.ImageDataGenerator(
     rescale=1./255, 
     validation_split=0.2,
-    rotation_range=40,
-    width_shift_range=0.2,  # Translates the images horizontally by up to 20% of the width
-    height_shift_range=0.2,  # Translates the images vertically by up to 20% of the height
-    horizontal_flip=True,  # Enables horizontal flipping
-    vertical_flip=True,  # Enables vertical flipping
-    preprocessing_function=adjust_contrast,
-
-    fill_mode='nearest')
+    #rotation_range=40,
+    #width_shift_range=0.2,  # Translates the images horizontally by up to 20% of the width
+    #height_shift_range=0.2,  # Translates the images vertically by up to 20% of the height
+    #horizontal_flip=True,  # Enables horizontal flipping
+    #vertical_flip=True,  # Enables vertical flipping
+    #preprocessing_function=adjust_contrast,
+    #fill_mode='nearest'
+    )
 
 # Instantiating generator to feed images through the network
 train_generator = dataGenerator.flow_from_directory(
