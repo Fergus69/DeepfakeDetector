@@ -194,12 +194,8 @@ class Meso4(Classifier):
         x4 = BatchNormalization()(x4)
         x4 = MaxPooling2D(pool_size = (2,2), padding = 'same')(x4)
 
-        x5 = Conv2D(32, (3, 3), padding = 'same', activation = 'relu')(x4)
-        x5 = BatchNormalization()(x5)
-        x5 = MaxPooling2D(pool_size = (2,2), padding = 'same')(x5)
 
-
-        y = Flatten()(x5)
+        y = Flatten()(x4)
         y = Dropout(0.5)(y)
         y = Dense(16)(y)
         y = LeakyReLU(negative_slope=0.1)(y)
@@ -319,7 +315,7 @@ def validation_func():
 
     print(f"Percentage of correct guesses: {percentage_correct:.2f}%")
     return percentage_correct
-history,epochs=meso.fit(train_dataset, validation_dataset, steps_per_epoch, validation_steps, epochs=20)
+history,epochs=meso.fit(train_dataset, validation_dataset, steps_per_epoch, validation_steps, epochs=32)
 last_epoch=len(history.history['accuracy'])
 
 # Evaluating prediction
