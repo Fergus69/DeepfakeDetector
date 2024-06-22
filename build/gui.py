@@ -239,10 +239,15 @@ def button_2_func():
         delete_image()
         create_image(picture_folder)
         resize_images_in_same_folder(predict_folder)
-    textbox.configure(state='normal')  # Enable the textbox to update text
-    textbox.delete('1.0', tk.END)  # Clear existing text
-    textbox.insert(tk.END, f"")  # Insert new prediction text
-    textbox.configure(state='disabled')  # Disable the textbox again
+    textbox_decision.configure(state='normal')  # Enable the textbox to update text
+    textbox_decision.delete('1.0', tk.END)  # Clear existing text
+    textbox_decision.insert(tk.END, f"")  # Insert new prediction text
+    textbox_decision.configure(state='disabled')  # Disable the textbox again
+
+    textbox_confidence.configure(state='normal')  # Enable the textbox to update text
+    textbox_confidence.delete('1.0', tk.END)  # Clear existing text
+    textbox_confidence.insert(tk.END, f"")  # Insert new prediction text
+    textbox_confidence.configure(state='disabled')  # Disable the textbox again
 
 
 
@@ -334,11 +339,18 @@ def alg():
     if prediction > 0.5:
         prediction_text = f"DeepFake"
     else:
-        prediction_text = f"Real"    
-    textbox.configure(state='normal')  # Enable the textbox to update text
-    textbox.delete('1.0', tk.END)  # Clear existing text
-    textbox.insert(tk.END, prediction_text)  # Insert new prediction text
-    textbox.configure(state='disabled')  # Disable the textbox again
+        prediction_text = f"Real"
+    confidence = abs(0.5 - prediction)*2*100
+    confidence_text= f"Confidence score: {confidence:.2f}%"
+    textbox_decision.configure(state='normal')  # Enable the textbox to update text
+    textbox_decision.delete('1.0', tk.END)  # Clear existing text
+    textbox_decision.insert(tk.END, prediction_text)  # Insert new prediction text
+    textbox_decision.configure(state='disabled')  # Disable the textbox again
+
+    textbox_confidence.configure(state='normal')
+    textbox_confidence.delete('1.0', tk.END)
+    textbox_confidence.insert(tk.END, confidence_text)  # Insert new prediction text
+    textbox_confidence.configure(state='disabled')  # Disable the textbox again
 
 
 window = Tk()
@@ -411,7 +423,7 @@ button_2.place(
 )
 
 # Textbox to display the predicted likelihood
-textbox = Text(
+textbox_decision = Text(
     window,
     height=1,
     width=30,
@@ -420,8 +432,21 @@ textbox = Text(
     borderwidth=1,
     relief="solid"
 )
-textbox.place(x=460, y=750)  # Adjust position as needed
-textbox.configure(state='disabled')  # Make the textbox uneditable
+textbox_decision.place(x=460, y=750)  # Adjust position as needed
+textbox_decision.configure(state='disabled')  # Make the textbox uneditable
+
+# Textbox to display the predicted likelihood
+textbox_confidence = Text(
+    window,
+    height=1,
+    width=30,
+    bg="#FFFFFF",
+    fg="black",
+    borderwidth=1,
+    relief="solid"
+)
+textbox_confidence.place(x=460, y=780)  # Adjust position as needed
+textbox_confidence.configure(state='disabled')  # Make the textbox uneditable
 
 
 window.resizable(False, False)
