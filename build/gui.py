@@ -60,6 +60,19 @@ def select_file():
              messagebox.showinfo("Wrong type", "This application only supports png and mp4 files.")    
     return None
     
+def count_items_in_folder(folder_path):
+    """ Counts the number of items in the given folder. """
+    try:
+        # List all files and directories in the given folder
+        items = os.listdir(folder_path)
+        # Return the count of items
+        return len(items)
+    except FileNotFoundError:
+        print("The folder does not exist.")
+        return 0
+    except PermissionError:
+        print("Permission denied for accessing the folder.")
+        return 0
 def save_first_frame_of_video(video_path, output_path):
     # Ensure the output directory exists
     output_dir = os.path.dirname(output_path)
@@ -226,6 +239,15 @@ def button_2_func():
         delete_image()
         create_image(picture_folder)
         resize_images_in_same_folder(predict_folder)
+    textbox_decision.configure(state='normal')  # Enable the textbox to update text
+    textbox_decision.delete('1.0', tk.END)  # Clear existing text
+    textbox_decision.insert(tk.END, f"")  # Insert new prediction text
+    textbox_decision.configure(state='disabled')  # Disable the textbox again
+
+    textbox_confidence.configure(state='normal')  # Enable the textbox to update text
+    textbox_confidence.delete('1.0', tk.END)  # Clear existing text
+    textbox_confidence.insert(tk.END, f"")  # Insert new prediction text
+    textbox_confidence.configure(state='disabled')  # Disable the textbox again
 
 
 
@@ -269,19 +291,17 @@ def alg():
             x1 = BatchNormalization()(x1)
             x1 = MaxPooling2D(pool_size=(2, 2), padding='same')(x1)
 
-            x2 = Conv2D(8, (5, 5), padding='same', activation = 'relu')(x1)
+            x2 = Conv2D(8, (3, 3), padding='same', activation = 'relu')(x1)
             x2 = BatchNormalization()(x2)
             x2 = MaxPooling2D(pool_size=(2, 2), padding='same')(x2)
 
-            x3 = Conv2D(16, (5, 5), padding='same', activation = 'relu')(x2)
+            x3 = Conv2D(16, (3, 3), padding='same', activation = 'relu')(x2)
             x3 = BatchNormalization()(x3)
             x3 = MaxPooling2D(pool_size=(2, 2), padding='same')(x3)
 
-            x4 = Conv2D(16, (5, 5), padding='same', activation = 'relu')(x3)
-            x4 = BatchNormalization()(x4)
-            x4 = MaxPooling2D(pool_size=(4, 4), padding='same')(x4)
+            
 
-            y = Flatten()(x4)
+            y = Flatten()(x3)
             y = Dropout(0.5)(y)
             y = Dense(16)(y)
             y = LeakyReLU(negative_slope=0.1)(y)
@@ -293,7 +313,7 @@ def alg():
     # Instantiate a MesoNet model with pretrained weights
     print("Current working directory: ", os.getcwd())
     meso = Meso4()
-    meso.load('./algoritm/weights/Meso4_DF.h5')
+    meso.load('./algoritm/weights/mesonet.h5')
 
     # Prepare image data
     
@@ -306,7 +326,7 @@ def alg():
         './build/assets/predict/',
         #predict_folder,
         target_size=(256, 256),
-        batch_size=1,
+        batch_size=count_items_in_folder(predict_folder),
         class_mode='binary')
 
     # Checking class assignment
@@ -314,16 +334,23 @@ def alg():
 
     # Rendering image X with label y for MesoNet
     X, y = next(generator)
-    label = label_entry.get()
-    if label:
-        if label == 'True':
-            y[0]=1
-        else:    
-            y[0]=0
     # Evaluating prediction
-    print(f"Predicted likelihood: {meso.predict(X)[0][0]:.4f}")
-    print(f"Actual label: {int(y[0])}")
-    print(f"\nCorrect prediction: {round(meso.predict(X)[0][0])==y[0]}")
+    prediction = meso.predict(X)[0][0]
+    if prediction > 0.5:
+        prediction_text = f"DeepFake"
+    else:
+        prediction_text = f"Real"
+    confidence = abs(0.5 - prediction)*2*100
+    confidence_text= f"Confidence score: {confidence:.2f}%"
+    textbox_decision.configure(state='normal')  # Enable the textbox to update text
+    textbox_decision.delete('1.0', tk.END)  # Clear existing text
+    textbox_decision.insert(tk.END, prediction_text)  # Insert new prediction text
+    textbox_decision.configure(state='disabled')  # Disable the textbox again
+
+    textbox_confidence.configure(state='normal')
+    textbox_confidence.delete('1.0', tk.END)
+    textbox_confidence.insert(tk.END, confidence_text)  # Insert new prediction text
+    textbox_confidence.configure(state='disabled')  # Disable the textbox again
 
 
 window = Tk()
@@ -353,8 +380,7 @@ image_1 = canvas.create_image(
     anchor='center'
 )
 
-label_entry = ttk.Combobox(window, values=["True", "False"], state="readonly")
-label_entry.place(x=512, y=751)
+
 
 button_image_1 = PhotoImage(
     file=relative_to_assets("button_1.png"))
@@ -395,6 +421,34 @@ button_2.place(
     width=139.0,
     height=30.0
 )
+
+# Textbox to display the predicted likelihood
+textbox_decision = Text(
+    window,
+    height=1,
+    width=30,
+    bg="#FFFFFF",
+    fg="black",
+    borderwidth=1,
+    relief="solid"
+)
+textbox_decision.place(x=460, y=750)  # Adjust position as needed
+textbox_decision.configure(state='disabled')  # Make the textbox uneditable
+
+# Textbox to display the predicted likelihood
+textbox_confidence = Text(
+    window,
+    height=1,
+    width=30,
+    bg="#FFFFFF",
+    fg="black",
+    borderwidth=1,
+    relief="solid"
+)
+textbox_confidence.place(x=460, y=780)  # Adjust position as needed
+textbox_confidence.configure(state='disabled')  # Make the textbox uneditable
+
+
 window.resizable(False, False)
 window.mainloop()
 
